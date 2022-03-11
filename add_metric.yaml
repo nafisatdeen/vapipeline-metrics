@@ -1,0 +1,41 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: custom-metrics
+  labels:
+    app: custom-metrics
+spec:
+  type: NodePort
+  ports:
+  - port: 5555
+    targetPort: 9877
+    protocol: TCP
+    name: http
+  selector:
+    app: custom-metrics
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: custom-metrics
+  labels:
+    app: custom-metrics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: custom-metrics
+  template:
+    metadata:
+      labels:
+        app: custom-metrics
+    spec:
+      containers:
+      - name: custom-metrics
+        image: uvdeployment/shield:prometheus_metrics 
+        imagePullPolicy: IfNotPresent
+        env:
+          - name: LISTENING_PORT
+            value: "80"
+
