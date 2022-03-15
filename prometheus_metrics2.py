@@ -22,15 +22,22 @@ class AppMetrics:
     """
 
     def __init__(self, polling_interval_seconds=5):
-        # self.app_port = app_port
         self.polling_interval_seconds = polling_interval_seconds
 
         # Prometheus metrics to collect
-        self.average_latency = Gauge("average_latency", "Average Latency")
-        self.average_throughput = Gauge("average_throughput", "Average Throughput")
-        self.fps = Gauge("fps", "FPS")
+        # self.average_latency = Gauge("average_latency", "Average Latency")
+        # self.average_throughput = Gauge("average_throughput", "Average Throughput")
+        # self.fps = Gauge("fps", "FPS")
+
         # self.health = Enum("app_health", "Health", states=["healthy", "unhealthy"])
         # self.ip_add = ip_add
+
+        self.fps_10 = {}
+        self.fps_100 = {}
+        self.frame_counts = {}
+        self.frame_drops = {}
+        self.latency_10 = {}
+        self.latency_100 = {}
 
     def run_metrics_loop(self):
         """Metrics fetching loop"""
@@ -51,33 +58,93 @@ class AppMetrics:
 
         try:
             # Fetch raw status data from the application
-            resp = requests.get(url="http://192.168.41.5:5011/performance", timeout=1)
+            resp = requests.get(url="http://192.168.41.5:5011/healthStatus", timeout=1)
             status_data = resp.json()
 
-        except KeyError as k:
-            resp = None
         except ConnectionError as e:
             resp = None
         except Exception as e:
             resp = None
 
-        if resp is not None and status_data==200:
-            # Metrics collector
-            average_latency = float(status_data["summary"]["average latency"][:-2])
-            average_throughput = float(status_data["summary"]["average throughput"][:-3])
-            fps = float(status_data["summary"]["fps"][:-3])
-        else:
-            average_latency = 0
-            average_throughput = 0
-            fps = 0
-        
-        logging.info("Done fetching")
+        if resp is not None:
 
-        # Update Prometheus metrics with application metrics
-        self.average_latency.set(average_latency)
-        self.average_throughput.set(average_throughput)
-        self.fps.set(fps)
-        #self.health.state(status_data["health"])
+            # Metrics collector
+            # average_latency = float(status_data["summary"]["average latency"][:-2])
+            # average_throughput = float(status_data["summary"]["average throughput"][:-3])
+            # fps = float(status_data["summary"]["fps"][:-3])
+
+            try:
+                for cam_id in status_data["fps"][0]:
+                    logger.debug(status_data["fps"][0])
+                    if cam_id=="avg" or cam_id=="duration":
+                        continue
+                    if cam_id not in self.fps_10:
+                        fps = Gauge("fps_10_{}".format(cam_id), "FPS for past 10 frames")
+                        self.fps_10[cam_id] = fps
+                        self.fps_10[cam_id].set(status_data["fps"][0][cam_id])
+                    else:
+                        self.fps_10[cam_id].set(status_data["fps"][0][cam_id])
+
+                for cam_id in status_data["fps"][1]:
+                    logger.debug(status_data["fps"][1])
+                    if cam_id=="avg" or cam_id=="duration":
+                        continue
+                    if cam_id not in self.fps_100:
+                        fps = Gauge("fps_100_{}".format(cam_id), "FPS for past 100 frames")
+                        self.fps_100[cam_id] = fps
+                        self.fps_100[cam_id].set(status_data["fps"][1][cam_id])
+                    else:
+                        self.fps_100[cam_id].set(status_data["fps"][1][cam_id])
+
+                for module_name in status_data["frame_counts"]:
+                    if module_name=="input-default" or module_name=="perimeter3-api_server" or module_name=="total":
+                        continue 
+                    if module_name not in self.frame_counts:
+                        fc = Gauge("fc_{}".format(module_name), "Frame Count")
+                        self.frame_counts[module_name] = fc
+                        self.frame_counts[module_name].set(status_data["frame_counts"][module_name])
+                    else:
+                        self.frame_counts[module_name].set(status_data["frame_counts"][module_name])
+
+                for module_name in status_data["frame_drops"]:
+                    if module_name=="input-default" or module_name=="perimeter3-api_server" or module_name=="total":
+                        continue 
+                    if module_name not in self.frame_drops:
+                        fd = Gauge("fd_{}".format(module_name), "Frame Drops")
+                        self.frame_drops[module_name] = fd
+                        self.frame_drops[module_name].set(status_data["frame_drops"][module_name])
+                    else:
+                        self.frame_drops[module_name].set(status_data["frame_drops"][module_name])
+
+                for module_name in status_data["latency"][0]:
+                    logger.debug(status_data["latency"][0])
+                    if module_name=="avg" or module_name=="duration":
+                        continue
+                    if module_name not in self.latency_10:
+                        lat = Gauge("Latency_10_{}".format(module_name), "Latency for past 10 frames")
+                        self.latency_10[module_name] = lat
+                        self.latency_10[module_name].set(status_data["latency"][0][module_name])
+                    else:
+                        self.latency_10[module_name].set(status_data["latency"][0][module_name])
+
+                for module_name in status_data["latency"][1]:
+                    logger.debug(status_data["latency"][1])
+                    if module_name=="avg" or module_name=="duration":
+                        continue
+                    if module_name not in self.latency_100:
+                        lat = Gauge("Latency_100_{}".format(module_name), "Latency for past 100 frames")
+                        self.latency_100[module_name] = lat
+                        self.latency_100[module_name].set(status_data["latency"][1][module_name])
+                    else:
+                        self.latency_100[module_name].set(status_data["latency"][1][module_name])
+
+            except KeyError as k:
+               logger.error("Key words not found! ") 
+
+        else:
+            logger.info("Could not fetch details")
+        
+        logger.info("Done fetching")
 
 def main():
     """Main entry point"""
