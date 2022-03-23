@@ -11,8 +11,10 @@ RUN apt -y update \
 RUN pip3 install requests prometheus_client kubernetes
 
 RUN mkdir -p /app
+RUN mkdir -p /app/config
+
 COPY run.sh /app/
-COPY prometheus_metrics2.py /app/
+COPY src/prometheus_metrics2.py /app/
 
 WORKDIR /app/
 
