@@ -36,7 +36,6 @@ class AppMetrics:
         while True:
             logger.info("Fetching logs")
             self.fetch()
-            logger.info("Logs fetched")
             logger.info("Sleeping for {} seconds".format(self.polling_interval_seconds))
             time.sleep(self.polling_interval_seconds)
 
@@ -64,6 +63,7 @@ class AppMetrics:
 
                 self.fps_100_avg.set(status_data["fps"][1]["avg"])
                 self.frame_counts.set(status_data["frame_counts"]["total"])
+                logger.info("Done fetching health status")
 
             except KeyError as k:
                logger.error("Key words not found! ") 
@@ -71,8 +71,6 @@ class AppMetrics:
         else:
             logger.info("Could not fetch health status")
         
-        logger.info("Done fetching health status")
-
         try:
             # Fetch raw status data from the application
             url="http://" + os.environ['IP_ADDRESS'] + ":5011/performance"
@@ -90,15 +88,12 @@ class AppMetrics:
 
                 self.average_latency.set(float(status_data["summary"]["average latency"][:-2]))
                 self.average_throughput.set(float(status_data["summary"]["average throughput"][:-3]))
-                logger.debug(float(status_data["summary"]["average latency"][:-2]))
-                logger.debug(float(status_data["summary"]["average throughput"][:-3]))
+                logger.info("Done fetching performance")
 
             except KeyError as k:
                logger.error("Key words not found! ") 
         else:
             logger.info("Could not fetch performance")
-
-        logger.info("Done fetching performance")
 
 def main():
     """Main entry point"""
